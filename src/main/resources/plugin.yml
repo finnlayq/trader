@@ -1,0 +1,16 @@
+name: Traders
+version: '${project.version}'
+main: de.juyas.customtrader.CustomTraderPlugin
+api-version: '1.21'
+depend:
+  - PaperUtils
+softdepend:
+  - Citizens
+author: Juyas
+commands:
+  trader:
+    description: 'Erstelle Händler-NPCs'
+    permission: trader.edit
+permissions:
+  trader.edit:
+    default: op
