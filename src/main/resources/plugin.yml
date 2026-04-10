@@ -1,28 +1,43 @@
 name: CustomTrader
 version: '1.0'
 main: de.juyas.customtrader.CustomTraderPlugin
-api-version: '1.20'
-prefix: '&8[&6CustomTrader&8]'
-authors: [ Juyas, Finnlay ]
-description: Ein Plugin zum Erstellen von custom Villager-Tradern.
-depend: [Citizens] # Das Plugin wartet beim Start, bis Citizens geladen ist
+api-version: '1.21'
+depend: [Citizens]
 
 commands:
   createtrader:
-    description: Erstellt einen neuen Trader.
-    usage: /createtrader <Name> [isNPC]
+    description: Erstellt einen neuen Trader
+  removetrader:
+    description: Loescht einen Trader
   addtrade:
-    description: Fügt einen Trade mit Items aus dem Inventar hinzu.
-    usage: /addtrade
+    description: Fuegt einen Trade hinzu
   addrawtrade:
-    description: Fügt einen Trade via Material-Namen hinzu.
-    usage: /addrawtrade <Mat1> <Anzahl1> <ResultMat> <ResultAnzahl>
+    description: Fuegt einen rohen Trade hinzu
+  deletetrade:
+    description: Loescht einen Trade
+  defaulttrades:
+    description: Laedt Standard-Trades
   adjusttrader:
-    description: Ändert Attribute wie Beruf oder Typ.
-    usage: /adjusttrader <Attribut> <Wert>
+    description: Passt den Trader an
   changecooldown:
-    description: Ändert die Reset-Zeit der Angebote.
-    usage: /changecooldown <Sekunden>
+    description: Aendert den Cooldown
   changename:
-    description: Ändert den Anzeigenamen eines Traders.
-    usage: /changename <Name>
+    description: Aendert den Namen
+  changeprofession:
+    description: Aendert den Beruf eines Villagers
+  changeskin:
+    description: Aendert den Skin
+  changetype:
+    description: Aendert das Wesen des Traders
+  movetrader:
+    description: Bewegt den Trader zu dir
+  showinfo:
+    description: Zeigt Infos ueber den Trader
+  toggleanimation:
+    description: Friert den Trader ein oder laesst ihn laufen
+  reloadtrader:
+    description: Laedt alle Trader neu
+  spawnall:
+    description: Spawnt alle Trader manuell
+  wipeall:
+    description: Entfernt alle Trader aus der Welt
