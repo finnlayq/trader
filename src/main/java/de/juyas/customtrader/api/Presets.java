@@ -1,65 +1,81 @@
 package de.juyas.customtrader.api;
 
+import de.juyas.customtrader.CustomTraderPlugin;
 import de.juyas.customtrader.model.TradeOfferEntry;
 import org.bukkit.Material;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class Presets {
 
+    private static FileConfiguration config;
+
+    public static void load() {
+        File folder = CustomTraderPlugin.getInstance().getDataFolder();
+        if (!folder.exists()) folder.mkdirs();
+
+        File file = new File(folder, "presets.yml");
+        if (!file.exists()) {
+            CustomTraderPlugin.getInstance().saveResource("presets.yml", false);
+        }
+        config = YamlConfiguration.loadConfiguration(file);
+    }
+
     public static List<TradeOfferEntry> getPreset(String name) {
         List<TradeOfferEntry> offers = new ArrayList<>();
-        switch (name.toLowerCase()) {
-            case "normal1":
-                add(offers, Material.HAY_BLOCK, 64, Material.GOLD_BLOCK, 1);
-                add(offers, Material.GOLD_NUGGET, 5, Material.WHEAT_SEEDS, 64);
-                add(offers, Material.GOLD_INGOT, 1, Material.APPLE, 32);
-                add(offers, Material.GOLD_BLOCK, 1, Material.IRON_BLOCK, 32);
-                add(offers, Material.GOLD_INGOT, 1, Material.BOW, 1);
-                add(offers, Material.GOLD_INGOT, 1, Material.OBSIDIAN, 16);
-                add(offers, Material.GOLD_BLOCK, 3, Material.DIAMOND, 3);
-                add(offers, Material.GOLD_INGOT, 3, Material.SADDLE, 1);
-                add(offers, Material.GOLD_INGOT, 1, Material.COAL, 64);
-                break;
-            case "normal2":
-                add(offers, Material.GOLD_INGOT, 5, Material.COW_SPAWN_EGG, 1);
-                add(offers, Material.GOLD_INGOT, 10, Material.HORSE_SPAWN_EGG, 1);
-                add(offers, Material.GOLD_INGOT, 4, Material.SPLASH_POTION, 1);
-                add(offers, Material.GOLD_INGOT, 3, Material.RED_CONCRETE_POWDER, 64);
-                add(offers, Material.GOLD_BLOCK, 1, Material.YELLOW_CONCRETE_POWDER, 5);
-                add(offers, Material.OBSIDIAN, 64, Material.GOLD_INGOT, 3);
-                add(offers, Material.RED_CONCRETE_POWDER, 64, Material.GOLD_INGOT, 2);
-                add(offers, Material.YELLOW_CONCRETE_POWDER, 4, Material.GOLD_INGOT, 4);
-                break;
-            case "lucastro":
-                add(offers, Material.GOLD_INGOT, 1, Material.BOW, 1);
-                add(offers, Material.GOLD_INGOT, 1, Material.OBSIDIAN, 16);
-                add(offers, Material.GOLD_BLOCK, 3, Material.DIAMOND, 3);
-                add(offers, Material.GOLD_INGOT, 3, Material.SADDLE, 1);
-                add(offers, Material.GOLD_INGOT, 1, Material.COAL, 64);
-                add(offers, Material.GOLD_INGOT, 10, Material.HORSE_SPAWN_EGG, 1);
-                add(offers, Material.GOLD_INGOT, 5, Material.COW_SPAWN_EGG, 1);
-                add(offers, Material.GOLD_INGOT, 5, Material.SPLASH_POTION, 1);
-                break;
-            case "ochsfurth":
-                add(offers, Material.GOLD_INGOT, 1, Material.BOW, 1);
-                add(offers, Material.GOLD_INGOT, 1, Material.OBSIDIAN, 16);
-                add(offers, Material.GOLD_BLOCK, 3, Material.DIAMOND, 3);
-                add(offers, Material.GOLD_INGOT, 3, Material.SADDLE, 1);
-                add(offers, Material.GOLD_INGOT, 1, Material.COAL, 64);
-                add(offers, Material.GOLD_INGOT, 10, Material.HORSE_SPAWN_EGG, 1);
-                add(offers, Material.GOLD_INGOT, 5, Material.COW_SPAWN_EGG, 1);
-                add(offers, Material.GOLD_INGOT, 3, Material.SPLASH_POTION, 1);
-                break;
+        if (config == null) return offers;
+
+        // Versuche den Key direkt oder unter "presets." zu finden
+        Object rawData = config.get(name);
+        if (rawData == null) rawData = config.get("presets." + name);
+
+        if (rawData instanceof List<?>) {
+            List<?> list = (List<?>) rawData;
+            for (Object obj : list) {
+                String line = String.valueOf(obj);
+                try {
+                    // Erkennt sowohl "->" als auch ">"
+                    String separator = line.contains("->") ? "->" : ">";
+                    String[] parts = line.split(separator);
+
+                    String[] buyPart = parts[0].trim().split(":");
+                    String[] sellPart = parts[1].trim().split(":");
+
+                    Material m1 = Material.valueOf(buyPart[0].toUpperCase());
+                    int a1 = Integer.parseInt(buyPart[1]);
+                    Material m2 = Material.valueOf(sellPart[0].toUpperCase());
+                    int a2 = Integer.parseInt(sellPart[1]);
+
+                    MerchantRecipe recipe = new MerchantRecipe(new ItemStack(m2, a2), 999999);
+                    recipe.addIngredient(new ItemStack(m1, a1));
+                    offers.add(new TradeOfferEntry(recipe));
+                } catch (Exception e) {
+                    CustomTraderPlugin.getInstance().getLogger().warning("Konnte Zeile im Preset nicht lesen: " + line);
+                }
+            }
         }
         return offers;
     }
 
-    private static void add(List<TradeOfferEntry> list, Material m1, int c1, Material m2, int c2) {
-        MerchantRecipe recipe = new MerchantRecipe(new ItemStack(m2, c2), 999999);
-        recipe.addIngredient(new ItemStack(m1, c1));
-        list.add(new TradeOfferEntry(recipe));
+    public static Set<String> getPresetNames() {
+        if (config == null) return Set.of();
+
+        // Falls die Datei eine "presets:" Sektion hat
+        if (config.isConfigurationSection("presets")) {
+            return config.getConfigurationSection("presets").getKeys(false);
+        }
+
+        // Ansonsten alle Keys auf oberster Ebene (außer dem Namen der Datei selbst)
+        return config.getKeys(false).stream()
+                .filter(k -> !k.equalsIgnoreCase("presets"))
+                .collect(Collectors.toSet());
     }
 }

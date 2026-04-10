@@ -11,7 +11,6 @@ import org.bukkit.entity.Villager;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,11 +23,15 @@ public class ApplyPreset extends AbstractSelectionCommand implements TabComplete
             return;
         }
 
+        // NEU: Wir laden die Presets kurz neu, falls die Datei geändert wurde
+        Presets.load();
+
         String presetName = args[0].toLowerCase();
         var newOffers = Presets.getPreset(presetName);
 
-        if (newOffers.isEmpty()) {
-            player.sendMessage("§cDieses Preset existiert nicht!");
+        if (newOffers == null || newOffers.isEmpty()) {
+            player.sendMessage("§cDas Preset '" + presetName + "' existiert nicht in der presets.yml!");
+            player.sendMessage("§7Verfügbar: " + String.join(", ", Presets.getPresetNames()));
             return;
         }
 
@@ -48,10 +51,8 @@ public class ApplyPreset extends AbstractSelectionCommand implements TabComplete
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
-            // Hier schlagen wir deine 4 Presets vor
-            List<String> suggestions = Arrays.asList("normal1", "normal2", "lucastro", "ochsfurth");
-            return suggestions.stream()
-                    .filter(s -> s.startsWith(args[0].toLowerCase()))
+            return Presets.getPresetNames().stream()
+                    .filter(s -> s.toLowerCase().startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         }
         return List.of();

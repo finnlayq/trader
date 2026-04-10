@@ -1,145 +1,147 @@
 package de.juyas.customtrader;
 
-import de.juyas.customtrader.model.TradeOfferEntry;
 import de.juyas.customtrader.model.TraderEntry;
-import net.citizensnpcs.api.CitizensAPI;
-import net.citizensnpcs.api.npc.NPC;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.*;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Villager;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public class TraderManager {
 
-    private final Map<UUID, TraderEntry> traderData = new HashMap<>();
+    private final List<TraderEntry> traders = new ArrayList<>();
     private final File file;
     private FileConfiguration config;
 
+    // Fix für CustomTraderPlugin.java:20
     public TraderManager() {
-        this.file = new File(CustomTraderPlugin.getInstance().getDataFolder(), "traders.yml");
-        load();
+        this(CustomTraderPlugin.getInstance().getDataFolder());
     }
 
-    public void createTrader(UUID id, String name, Location loc, EntityType type, boolean npc) {
-        TraderEntry entry = new TraderEntry(id, name, loc, type, npc);
-        traderData.put(id, entry);
-        save();
+    public TraderManager(File dataFolder) {
+        if (!dataFolder.exists()) dataFolder.mkdirs();
+        this.file = new File(dataFolder, "traders.yml");
+        if (!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        reload();
     }
 
-    public void spawn() {
-        List<TraderEntry> currentTraders = new ArrayList<>(traderData.values());
-        for (TraderEntry entry : currentTraders) {
-            // WICHTIG: Nur spawnen, wenn aktiv!
-            if (!entry.isActive()) continue;
-
-            Location loc = entry.getLocation();
-            if (loc == null || loc.getWorld() == null) continue;
-
-            if (entry.isNpc()) {
-                NPC npc = CitizensAPI.getNPCRegistry().getByUniqueId(entry.getId());
-                if (npc != null && !npc.isSpawned()) npc.spawn(loc);
-            } else {
-                Entity entity = Bukkit.getEntity(entry.getId());
-                if (entity == null) {
-                    entity = loc.getWorld().spawnEntity(loc, entry.getType());
-                    traderData.remove(entry.getId());
-                    entry.setId(entity.getUniqueId());
-                    traderData.put(entity.getUniqueId(), entry);
+    // Fix für Reload.java:24 und ReloadTrader.java:15
+    public void reload() {
+        traders.clear();
+        config = YamlConfiguration.loadConfiguration(file);
+        if (config.contains("traders")) {
+            for (String key : config.getConfigurationSection("traders").getKeys(false)) {
+                Object obj = config.get("traders." + key);
+                if (obj instanceof TraderEntry entry) {
+                    traders.add(entry);
                 }
-
-                final Entity finalEntity = entity;
-                Bukkit.getScheduler().runTaskLater(CustomTraderPlugin.getInstance(), () -> {
-                    finalEntity.setCustomName(entry.getName());
-                    finalEntity.setCustomNameVisible(true);
-                    if (finalEntity instanceof LivingEntity living) {
-                        living.setInvulnerable(true);
-                        living.setAI(entry.isAnimationEnabled());
-                        living.setPersistent(true);
-                    }
-                    if (finalEntity instanceof Villager villager) {
-                        villager.setProfession(entry.getProfession());
-                        villager.setRecipes(entry.getOffers().stream().map(TradeOfferEntry::getRecipe).collect(Collectors.toList()));
-                    }
-                }, 2L);
             }
         }
     }
 
     public void save() {
-        config = new YamlConfiguration();
-        for (TraderEntry entry : traderData.values()) {
-            String path = "traders." + entry.getId().toString();
-            config.set(path + ".active", entry.isActive()); // SPEICHERN
-            config.set(path + ".name", entry.getName());
-            config.set(path + ".type", entry.getType().name());
-            config.set(path + ".location", entry.getLocation());
-            config.set(path + ".isNpc", entry.isNpc());
-            config.set(path + ".profession", entry.getProfession().name());
-            config.set(path + ".animation", entry.isAnimationEnabled());
-
-            List<Map<String, Object>> serializedOffers = new ArrayList<>();
-            for (TradeOfferEntry offer : entry.getOffers()) {
-                Map<String, Object> map = new HashMap<>();
-                map.put("result", offer.getRecipe().getResult());
-                map.put("ingredients", offer.getRecipe().getIngredients());
-                serializedOffers.add(map);
-            }
-            config.set(path + ".offers", serializedOffers);
+        config.set("traders", null);
+        for (TraderEntry entry : traders) {
+            config.set("traders." + entry.getId().toString(), entry);
         }
-        try { config.save(file); } catch (IOException e) { e.printStackTrace(); }
-    }
-
-    private void load() {
-        if (!file.exists()) return;
-        config = YamlConfiguration.loadConfiguration(file);
-        if (config.getConfigurationSection("traders") == null) return;
-        traderData.clear();
-        for (String key : config.getConfigurationSection("traders").getKeys(false)) {
-            UUID id = UUID.fromString(key);
-            TraderEntry entry = new TraderEntry(id,
-                    config.getString("traders." + key + ".name"),
-                    config.getLocation("traders." + key + ".location"),
-                    EntityType.valueOf(config.getString("traders." + key + ".type")),
-                    config.getBoolean("traders." + key + ".isNpc")
-            );
-            entry.setActive(config.getBoolean("traders." + key + ".active", true)); // LADEN
-            if (config.contains("traders." + key + ".profession"))
-                entry.setProfession(Villager.Profession.valueOf(config.getString("traders." + key + ".profession")));
-            entry.setAnimationEnabled(config.getBoolean("traders." + key + ".animation", true));
-            if (config.contains("traders." + key + ".offers")) {
-                List<Map<?, ?>> offerList = config.getMapList("traders." + key + ".offers");
-                for (Map<?, ?> map : offerList) {
-                    MerchantRecipe recipe = new MerchantRecipe((ItemStack) map.get("result"), 999999);
-                    ((List<ItemStack>) map.get("ingredients")).forEach(recipe::addIngredient);
-                    entry.getOffers().add(new TradeOfferEntry(recipe));
-                }
-            }
-            traderData.put(id, entry);
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
+    // Fix für SpawnAll.java:17 und CustomTraderPlugin.java:27
+    public void spawn() {
+        for (TraderEntry entry : traders) {
+            spawn(entry);
+        }
+    }
+
+    public void spawn(TraderEntry entry) {
+        if (entry == null || !entry.isActive()) return;
+        Location loc = entry.getLocation();
+        if (loc == null || loc.getWorld() == null) return;
+
+        Entity old = Bukkit.getEntity(entry.getId());
+        if (old != null) old.remove();
+
+        Entity entity = loc.getWorld().spawnEntity(loc, entry.getType());
+        entry.setId(entity.getUniqueId());
+
+        Bukkit.getScheduler().runTaskLater(CustomTraderPlugin.getInstance(), () -> {
+            entity.setCustomName(entry.getName());
+            entity.setCustomNameVisible(true);
+
+            if (entity instanceof LivingEntity living) {
+                living.setInvulnerable(true);
+                boolean isAnimated = entry.isAnimationEnabled();
+                living.setAI(isAnimated);
+                living.setSilent(!isAnimated);
+                living.setPersistent(true);
+            }
+
+            if (entity instanceof Villager villager) {
+                villager.setProfession(entry.getProfession());
+                villager.setRecipes(entry.getOffers().stream()
+                        .map(de.juyas.customtrader.model.TradeOfferEntry::getRecipe)
+                        .collect(Collectors.toList()));
+            }
+        }, 2L);
+    }
+
+    // Fix für WipeAll.java:17 und Reload.java:21
     public void despawnAll() {
-        for (TraderEntry entry : traderData.values()) {
-            if (entry.isNpc()) {
-                NPC npc = CitizensAPI.getNPCRegistry().getByUniqueId(entry.getId());
-                if (npc != null) npc.despawn();
-            } else {
-                Entity entity = Bukkit.getEntity(entry.getId());
-                if (entity != null) entity.remove();
-            }
+        for (TraderEntry entry : traders) {
+            Entity entity = Bukkit.getEntity(entry.getId());
+            if (entity != null) entity.remove();
+            entry.setActive(false);
+        }
+        save();
+    }
+
+    // Fix für CitizensHandler.java:19, CreateTrader.java:34, AbstractSelectionCommand:29, DeletionListener:15
+    public TraderEntry getTrader(UUID id) {
+        if (id == null) return null;
+        return traders.stream().filter(t -> t.getId().equals(id)).findFirst().orElse(null);
+    }
+
+    // Fix für RemoveTrader.java:11 und DeletionListener:18
+    public void removeTrader(UUID id) {
+        TraderEntry entry = getTrader(id);
+        if (entry != null) {
+            Entity entity = Bukkit.getEntity(id);
+            if (entity != null) entity.remove();
+            traders.remove(entry);
+            save();
         }
     }
 
-    public TraderEntry getTrader(UUID id) { return traderData.get(id); }
-    public Collection<TraderEntry> getTraders() { return traderData.values(); }
-    public void removeTrader(UUID id) { traderData.remove(id); save(); }
-    public void reload() { despawnAll(); load(); spawn(); }
+    // Fix für CreateTrader.java:44
+    public void createTrader(UUID id, String name, Location loc, EntityType type, boolean active) {
+        TraderEntry entry = new TraderEntry(id, name, loc, type, active);
+        traders.add(entry);
+        spawn(entry);
+        save();
+    }
+
+    public List<TraderEntry> getTraders() {
+        return traders;
+    }
 }

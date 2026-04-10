@@ -43,3 +43,7 @@ commands:
     description: Entfernt alle Trader aus der Welt
   applypreset:
     description: Wendet ein Handels-Preset (normal1, normal2, lucastro, ochsfurth) an.
+  changeprice:
+    description: Ändert die Mengen/ den Preis eines bestehenden Trades.
+  movetrader:
+    description: Teleportiert den ausgewählten Trader zu dir.
