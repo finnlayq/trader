@@ -21,6 +21,9 @@ public class TraderEntry {
     private boolean animationEnabled = true;
     private Villager.Profession profession = Villager.Profession.NONE;
 
+    // NEU: Status-Variable
+    private boolean active = true;
+
     public TraderEntry(UUID id, String name, Location location, EntityType type, boolean npc) {
         this.id = id;
         this.name = name;
@@ -33,10 +36,12 @@ public class TraderEntry {
         return attribute.getValue(this);
     }
 
-    // GETTER & SETTER FÜR SPEICHERUNG
+    // GETTER & SETTER FÜR ACTIVE
+    public boolean isActive() { return active; }
+    public void setActive(boolean active) { this.active = active; }
+
     public Villager.Profession getProfession() { return profession; }
     public void setProfession(Villager.Profession profession) { this.profession = profession; }
-
     public int getRefreshSeconds() { return refreshSeconds; }
     public void setRefreshSeconds(int refreshSeconds) { this.refreshSeconds = refreshSeconds; }
     public boolean isAnimationEnabled() { return animationEnabled; }

@@ -24,31 +24,61 @@ public class CustomTraderPlugin extends JavaPlugin {
         manager = new TraderManager();
 
         // Commands registrieren
-        if (getCommand("createtrader") != null) getCommand("createtrader").setExecutor(new CreateTrader());
-        if (getCommand("removetrader") != null) getCommand("removetrader").setExecutor(new RemoveTrader());
-        if (getCommand("addtrade") != null) getCommand("addtrade").setExecutor(new AddTrade());
-        if (getCommand("addrawtrade") != null) getCommand("addrawtrade").setExecutor(new AddRawTrade());
-        if (getCommand("deletetrade") != null) getCommand("deletetrade").setExecutor(new DeleteTrade());
-        if (getCommand("defaulttrades") != null) getCommand("defaulttrades").setExecutor(new DefaultTrades());
-        if (getCommand("adjusttrader") != null) getCommand("adjusttrader").setExecutor(new AdjustTrader());
-        if (getCommand("changecooldown") != null) getCommand("changecooldown").setExecutor(new ChangeCooldown());
-        if (getCommand("changename") != null) getCommand("changename").setExecutor(new ChangeName());
-        if (getCommand("changeprofession") != null) getCommand("changeprofession").setExecutor(new ChangeProfession());
-        if (getCommand("changeskin") != null) getCommand("changeskin").setExecutor(new ChangeSkin());
-        if (getCommand("changetype") != null) getCommand("changetype").setExecutor(new ChangeType());
-        if (getCommand("movetrader") != null) getCommand("movetrader").setExecutor(new MoveTrader());
-        if (getCommand("showinfo") != null) getCommand("showinfo").setExecutor(new ShowInfo());
-        if (getCommand("toggleanimation") != null) getCommand("toggleanimation").setExecutor(new ToggleAnimation());
-        if (getCommand("reloadtrader") != null) getCommand("reloadtrader").setExecutor(new ReloadTrader());
-
-        // NEU: Spawnen und Wipen
-        if (getCommand("spawnall") != null) getCommand("spawnall").setExecutor(new SpawnAll());
-        if (getCommand("wipeall") != null) getCommand("wipeall").setExecutor(new WipeAll());
+        registerCommands();
 
         // Listener registrieren
         Bukkit.getPluginManager().registerEvents(new DeletionListener(), this);
 
+        // Trader beim Start spawnen
         manager.spawn();
+    }
+
+    private void registerCommands() {
+        // --- ADD RAW TRADE (mit Tab) ---
+        AddRawTrade addRawTrade = new AddRawTrade();
+        registerCommand("addrawtrade", addRawTrade, addRawTrade);
+
+        // --- APPLY PRESET (mit Tab) ---
+        ApplyPreset applyPreset = new ApplyPreset();
+        registerCommand("applypreset", applyPreset, applyPreset);
+
+        // --- CHANGE TYPE (mit Tab) ---
+        ChangeType changeType = new ChangeType();
+        registerCommand("changetype", changeType, changeType);
+
+        // --- CHANGE PROFESSION (mit Tab) ---
+        ChangeProfession changeProfession = new ChangeProfession();
+        registerCommand("changeprofession", changeProfession, changeProfession);
+
+        // --- Standard Commands (ohne speziellen Tab-Completer) ---
+        registerCommand("createtrader", new CreateTrader(), null);
+        registerCommand("removetrader", new RemoveTrader(), null);
+        registerCommand("addtrade", new AddTrade(), null);
+        registerCommand("deletetrade", new DeleteTrade(), null);
+        registerCommand("defaulttrades", new DefaultTrades(), null);
+        registerCommand("adjusttrader", new AdjustTrader(), null);
+        registerCommand("changecooldown", new ChangeCooldown(), null);
+        registerCommand("changename", new ChangeName(), null);
+        registerCommand("changeskin", new ChangeSkin(), null);
+        registerCommand("movetrader", new MoveTrader(), null);
+        registerCommand("showinfo", new ShowInfo(), null);
+        registerCommand("toggleanimation", new ToggleAnimation(), null);
+        registerCommand("reloadtrader", new ReloadTrader(), null);
+        registerCommand("spawnall", new SpawnAll(), null);
+        registerCommand("wipeall", new WipeAll(), null);
+    }
+
+    /**
+     * Hilfsmethode um Commands sauber mit Executor und TabCompleter zu registrieren
+     */
+    private void registerCommand(String name, org.bukkit.command.CommandExecutor executor, org.bukkit.command.TabCompleter completer) {
+        var cmd = getCommand(name);
+        if (cmd != null) {
+            cmd.setExecutor(executor);
+            if (completer != null) {
+                cmd.setTabCompleter(completer);
+            }
+        }
     }
 
     @Override

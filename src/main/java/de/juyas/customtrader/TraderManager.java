@@ -1,5 +1,6 @@
 package de.juyas.customtrader;
 
+import de.juyas.customtrader.model.TradeOfferEntry;
 import de.juyas.customtrader.model.TraderEntry;
 import net.citizensnpcs.api.CitizensAPI;
 import net.citizensnpcs.api.npc.NPC;
@@ -8,9 +9,13 @@ import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.*;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.MerchantRecipe;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class TraderManager {
 
@@ -32,6 +37,9 @@ public class TraderManager {
     public void spawn() {
         List<TraderEntry> currentTraders = new ArrayList<>(traderData.values());
         for (TraderEntry entry : currentTraders) {
+            // WICHTIG: Nur spawnen, wenn aktiv!
+            if (!entry.isActive()) continue;
+
             Location loc = entry.getLocation();
             if (loc == null || loc.getWorld() == null) continue;
 
@@ -48,23 +56,73 @@ public class TraderManager {
                 }
 
                 final Entity finalEntity = entity;
-                // Wir warten 2 Ticks (0.1 Sek), damit Minecraft das Wesen wirklich registriert hat
                 Bukkit.getScheduler().runTaskLater(CustomTraderPlugin.getInstance(), () -> {
                     finalEntity.setCustomName(entry.getName());
                     finalEntity.setCustomNameVisible(true);
-
                     if (finalEntity instanceof LivingEntity living) {
-                        living.setInvulnerable(true); // Unverwundbar
-                        living.setAI(entry.isAnimationEnabled()); // Bewegung stoppen
-                        living.setRemoveWhenFarAway(false);
+                        living.setInvulnerable(true);
+                        living.setAI(entry.isAnimationEnabled());
                         living.setPersistent(true);
                     }
-
                     if (finalEntity instanceof Villager villager) {
                         villager.setProfession(entry.getProfession());
+                        villager.setRecipes(entry.getOffers().stream().map(TradeOfferEntry::getRecipe).collect(Collectors.toList()));
                     }
                 }, 2L);
             }
+        }
+    }
+
+    public void save() {
+        config = new YamlConfiguration();
+        for (TraderEntry entry : traderData.values()) {
+            String path = "traders." + entry.getId().toString();
+            config.set(path + ".active", entry.isActive()); // SPEICHERN
+            config.set(path + ".name", entry.getName());
+            config.set(path + ".type", entry.getType().name());
+            config.set(path + ".location", entry.getLocation());
+            config.set(path + ".isNpc", entry.isNpc());
+            config.set(path + ".profession", entry.getProfession().name());
+            config.set(path + ".animation", entry.isAnimationEnabled());
+
+            List<Map<String, Object>> serializedOffers = new ArrayList<>();
+            for (TradeOfferEntry offer : entry.getOffers()) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("result", offer.getRecipe().getResult());
+                map.put("ingredients", offer.getRecipe().getIngredients());
+                serializedOffers.add(map);
+            }
+            config.set(path + ".offers", serializedOffers);
+        }
+        try { config.save(file); } catch (IOException e) { e.printStackTrace(); }
+    }
+
+    private void load() {
+        if (!file.exists()) return;
+        config = YamlConfiguration.loadConfiguration(file);
+        if (config.getConfigurationSection("traders") == null) return;
+        traderData.clear();
+        for (String key : config.getConfigurationSection("traders").getKeys(false)) {
+            UUID id = UUID.fromString(key);
+            TraderEntry entry = new TraderEntry(id,
+                    config.getString("traders." + key + ".name"),
+                    config.getLocation("traders." + key + ".location"),
+                    EntityType.valueOf(config.getString("traders." + key + ".type")),
+                    config.getBoolean("traders." + key + ".isNpc")
+            );
+            entry.setActive(config.getBoolean("traders." + key + ".active", true)); // LADEN
+            if (config.contains("traders." + key + ".profession"))
+                entry.setProfession(Villager.Profession.valueOf(config.getString("traders." + key + ".profession")));
+            entry.setAnimationEnabled(config.getBoolean("traders." + key + ".animation", true));
+            if (config.contains("traders." + key + ".offers")) {
+                List<Map<?, ?>> offerList = config.getMapList("traders." + key + ".offers");
+                for (Map<?, ?> map : offerList) {
+                    MerchantRecipe recipe = new MerchantRecipe((ItemStack) map.get("result"), 999999);
+                    ((List<ItemStack>) map.get("ingredients")).forEach(recipe::addIngredient);
+                    entry.getOffers().add(new TradeOfferEntry(recipe));
+                }
+            }
+            traderData.put(id, entry);
         }
     }
 
@@ -77,45 +135,6 @@ public class TraderManager {
                 Entity entity = Bukkit.getEntity(entry.getId());
                 if (entity != null) entity.remove();
             }
-        }
-    }
-
-    public void save() {
-        config = new YamlConfiguration();
-        for (TraderEntry entry : traderData.values()) {
-            String path = "traders." + entry.getId().toString();
-            config.set(path + ".name", entry.getName());
-            config.set(path + ".type", entry.getType().name());
-            config.set(path + ".location", entry.getLocation());
-            config.set(path + ".isNpc", entry.isNpc());
-            config.set(path + ".profession", entry.getProfession().name());
-            config.set(path + ".animation", entry.isAnimationEnabled());
-        }
-        try {
-            if (!file.getParentFile().exists()) file.getParentFile().mkdirs();
-            config.save(file);
-        } catch (IOException e) { e.printStackTrace(); }
-    }
-
-    private void load() {
-        if (!file.exists()) return;
-        config = YamlConfiguration.loadConfiguration(file);
-        if (config.getConfigurationSection("traders") == null) return;
-
-        traderData.clear();
-        for (String key : config.getConfigurationSection("traders").getKeys(false)) {
-            UUID id = UUID.fromString(key);
-            String name = config.getString("traders." + key + ".name");
-            EntityType type = EntityType.valueOf(config.getString("traders." + key + ".type", "VILLAGER"));
-            Location loc = config.getLocation("traders." + key + ".location");
-            boolean isNpc = config.getBoolean("traders." + key + ".isNpc");
-
-            TraderEntry entry = new TraderEntry(id, name, loc, type, isNpc);
-            if (config.contains("traders." + key + ".profession")) {
-                entry.setProfession(Villager.Profession.valueOf(config.getString("traders." + key + ".profession")));
-            }
-            entry.setAnimationEnabled(config.getBoolean("traders." + key + ".animation", true));
-            traderData.put(id, entry);
         }
     }
 

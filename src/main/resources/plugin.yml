@@ -41,3 +41,5 @@ commands:
     description: Spawnt alle Trader manuell
   wipeall:
     description: Entfernt alle Trader aus der Welt
+  applypreset:
+    description: Wendet ein Handels-Preset (normal1, normal2, lucastro, ochsfurth) an.

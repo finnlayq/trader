@@ -4,7 +4,6 @@ import de.juyas.customtrader.api.TraderNPCHandler;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -19,49 +18,39 @@ public class ChangeType extends AbstractSelectionCommand implements TabCompleter
     @Override
     public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
         if (args.length < 1) {
-            player.sendMessage("§cBenutzung: /changetype <Typ>");
-            return;
-        }
-
-        Entity entity = player.getTargetEntity(5);
-        if (entity == null) return;
-
-        // WICHTIGER CHECK: Ist das ein Citizens NPC?
-        if (entity.hasMetadata("NPC")) {
-            player.sendMessage("§c[CustomTrader] Dieser Trader wird von Citizens gesteuert!");
-            player.sendMessage("§7Um ihn zu verwandeln, schaue ihn an und tippe:");
-            player.sendMessage("§e/npc type " + args[0].toLowerCase());
+            player.sendMessage("§cBenutzung: /changetype <EntityTyp>");
             return;
         }
 
         try {
             EntityType type = EntityType.valueOf(args[0].toUpperCase());
 
-            if (!type.isAlive()) {
-                player.sendMessage("§cDieser Typ ist für einen Trader nicht geeignet!");
-                return;
-            }
-
-            // Typ in deiner Datenbank speichern
+            // Den Typ in den Daten speichern
             handler.trader().setType(type);
-            player.sendMessage("§a[CustomTrader] Typ im System gespeichert.");
-            player.sendMessage("§7Da dies kein Citizens-NPC ist, musst du /reloadtrader nutzen, damit er sich neu spawnt.");
+
+            player.sendMessage("§a[CustomTrader] Typ auf §f" + type.name() + " §ageändert.");
+            player.sendMessage("§7Nutze /spawnall oder starte den Server neu, um die Änderung zu sehen.");
+
+            // Speichern
+            de.juyas.customtrader.CustomTraderPlugin.getInstance().getManager().save();
 
         } catch (IllegalArgumentException e) {
-            player.sendMessage("§cUngültiger Typ! Nutze die Tab-Taste.");
+            player.sendMessage("§cUngültiger Entity-Typ!");
         }
     }
 
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
+            // Schlägt alle lebenden/spawnbaren Entity-Typen vor
             return Arrays.stream(EntityType.values())
+                    .filter(EntityType::isSpawnable)
                     .filter(EntityType::isAlive)
-                    .map(Enum::name)
-                    .map(String::toLowerCase)
+                    .map(t -> t.name().toLowerCase())
                     .filter(name -> name.startsWith(args[0].toLowerCase()))
+                    .limit(25) // Begrenzung, damit die Liste übersichtlich bleibt
                     .collect(Collectors.toList());
         }
-        return null;
+        return List.of();
     }
 }
