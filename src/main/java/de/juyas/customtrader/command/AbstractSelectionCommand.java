@@ -1,87 +1,49 @@
 package de.juyas.customtrader.command;
 
 import de.juyas.customtrader.CustomTraderPlugin;
-import de.juyas.customtrader.TraderManager;
 import de.juyas.customtrader.api.TraderNPCHandler;
-import de.juyas.utils.api.command.PlayerCommand;
-import de.juyas.utils.api.hud.Chat;
-import org.bukkit.Bukkit;
+import de.juyas.customtrader.model.TraderEntry;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.*;
+public abstract class AbstractSelectionCommand implements CommandExecutor {
 
-/**
- * @author Juyas
- * @version 27.11.2023
- * @since 27.11.2023
- */
-public abstract class AbstractSelectionCommand extends PlayerCommand implements Listener
-{
+    @Override
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cNur Spieler können diesen Befehl ausführen.");
+            return true;
+        }
 
-    private final Set<UUID> registrationQueue;
+        Entity entity = player.getTargetEntity(5);
 
-    public AbstractSelectionCommand( String name, String... aliases )
-    {
-        super( name, aliases );
-        this.registrationQueue = new HashSet<>( 5 );
-        Bukkit.getPluginManager().registerEvents( this, CustomTraderPlugin.getInstance() );
-    }
+        if (entity == null) {
+            player.sendMessage("§cDu musst einen Trader anschauen!");
+            return true;
+        }
 
-    protected boolean inQueue( Player player )
-    {
-        return this.registrationQueue.contains( player.getUniqueId() );
-    }
+        TraderEntry entry = CustomTraderPlugin.getInstance().getManager().getTrader(entity.getUniqueId());
 
-    protected void putInQueue( Player player )
-    {
-        this.registrationQueue.add( player.getUniqueId() );
-    }
+        if (entry == null) {
+            player.sendMessage("§cDieses Wesen ist kein registrierter Trader!");
+            return true;
+        }
 
-    protected void pullFromQueue( Player player )
-    {
-        this.registrationQueue.remove( player.getUniqueId() );
-    }
+        TraderNPCHandler handler = new TraderNPCHandler(entry);
+        onSelectionCommand(player, handler, args);
 
-    protected TraderManager manager()
-    {
-        return CustomTraderPlugin.getInstance().getManager();
-    }
-
-    public boolean onInteractUnknownEntity( Player player, Entity entity )
-    {
-        pullFromQueue( player );
-        Chat.send( player, "§cDieser Händler ist noch nicht im Register!" );
         return true;
     }
 
-    public boolean onInteractKnownTrader( Player player, Entity entity, TraderNPCHandler info )
-    {
-        pullFromQueue( player );
-        Chat.send( player, "§cDieser Händler ist schon eingetragen." );
-        return true;
+    public abstract void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args);
+
+    protected void putInQueue(Player player) {
     }
 
-    @EventHandler
-    public void onInteract( PlayerInteractEntityEvent event )
-    {
-        if ( !registrationQueue.contains( event.getPlayer().getUniqueId() ) ) return;
-        TraderManager manager = CustomTraderPlugin.getInstance().getManager();
-        Entity entity = event.getRightClicked();
-        boolean known = manager.isKnown( entity );
-        if ( known )
-        {
-            if ( onInteractKnownTrader( event.getPlayer(), entity, manager.getTrader( entity ) ) )
-                event.setCancelled( true );
-        }
-        else
-        {
-            if ( onInteractUnknownEntity( event.getPlayer(), entity ) )
-                event.setCancelled( true );
-        }
+    protected void pullFromQueue(Player player) {
     }
-
 }

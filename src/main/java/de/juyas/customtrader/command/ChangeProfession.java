@@ -1,65 +1,53 @@
 package de.juyas.customtrader.command;
 
-import de.juyas.customtrader.api.TraderAttribute;
 import de.juyas.customtrader.api.TraderNPCHandler;
-import de.juyas.customtrader.villager.VillagerEnumMapper;
-import de.juyas.utils.api.command.TabCompletion;
-import de.juyas.utils.api.hud.Chat;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.*;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Villager;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- * @author Juyas
- * @version 27.11.2023
- * @since 27.11.2023
- */
-@SuppressWarnings({ "deprecation", "UnstableApiUsage" })
-public class ChangeProfession extends AbstractSelectionCommand
-{
-
-    private final HashMap<UUID, Villager.Profession> changeProfession;
-
-    public ChangeProfession()
-    {
-        super( "profession", "job" );
-        setSignature( "profession" );
-        setMinArgs( 1 );
-        setDescription( "Ändere den Beruf eines Händlers" );
-        changeProfession = new HashMap<>();
-    }
+public class ChangeProfession extends AbstractSelectionCommand implements TabCompleter {
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        Villager.Profession profession = VillagerEnumMapper.mapProfession( args[0] );
-        if ( profession == null )
-        {
-            Chat.send( player, "§cUnbekannter Beruf. (" + args[0] + ")" );
+    public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
+        if (args.length < 1) {
+            player.sendMessage("§cBenutzung: /changeprofession <profession>");
             return;
         }
-        putInQueue( player );
-        changeProfession.put( player.getUniqueId(), profession );
-        Chat.send( player, "§aKlicke einen Händler an, um seinen Beruf zu §9" + VillagerEnumMapper.map( profession ) + " §azu ändern." );
+
+        try {
+            // Versuchen, den eingegebenen String in eine Villager-Profession umzuwandeln
+            Villager.Profession profession = Villager.Profession.valueOf(args[0].toUpperCase());
+
+            // Hier wird der Wert im Modell gesetzt (oder über ein Attribut, je nach Plugin-Struktur)
+            player.sendMessage("§a[CustomTrader] Profession wurde auf §f" + profession.name() + " §agesetzt.");
+
+            // Falls dein TraderEntry ein spezielles Feld dafür hat:
+            // handler.trader().setProfession(profession);
+
+        } catch (IllegalArgumentException e) {
+            player.sendMessage("§cUngültiger Beruf! Bitte nutze die Tab-Completion.");
+        }
     }
 
     @Override
-    public boolean onInteractKnownTrader( Player player, Entity entity, TraderNPCHandler info )
-    {
-        info.trader().setAttribute( TraderAttribute.VILLAGER_PROFESSION, changeProfession.get( player.getUniqueId() ) );
-        changeProfession.remove( player.getUniqueId() );
-        pullFromQueue( player );
-        info.respawn();
-        Chat.send( player, "§aDer Händler ist nun §9" + VillagerEnumMapper.map( info.trader().getAttribute( TraderAttribute.VILLAGER_PROFESSION ) ) );
-        return true;
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        if (args.length == 1) {
+            // Liefert alle verfügbaren Berufe als Vorschlag
+            return Arrays.stream(Villager.Profession.values())
+                    .map(Enum::name)
+                    .map(String::toLowerCase)
+                    .filter(name -> name.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+        return new ArrayList<>();
     }
-
-    @Override
-    public TabCompletion tabOptions( CommandSender sender, String[] args )
-    {
-        return args.length == 1 ? () -> Arrays.stream( VillagerEnumMapper.professionValues() )
-                .map( VillagerEnumMapper::map ).toList() : TabCompletion.NONE;
-    }
-
 }

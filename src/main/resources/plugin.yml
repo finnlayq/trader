@@ -1,16 +1,28 @@
-name: Traders
-version: '${project.version}'
+name: CustomTrader
+version: '1.0'
 main: de.juyas.customtrader.CustomTraderPlugin
-api-version: '1.21'
-depend:
-  - PaperUtils
-softdepend:
-  - Citizens
-author: Juyas
+api-version: '1.20'
+prefix: '&8[&6CustomTrader&8]'
+authors: [ Juyas, Finnlay ]
+description: Ein Plugin zum Erstellen von custom Villager-Tradern.
+depend: [Citizens] # Das Plugin wartet beim Start, bis Citizens geladen ist
+
 commands:
-  trader:
-    description: 'Erstelle Händler-NPCs'
-    permission: trader.edit
-permissions:
-  trader.edit:
-    default: op
+  createtrader:
+    description: Erstellt einen neuen Trader.
+    usage: /createtrader <Name> [isNPC]
+  addtrade:
+    description: Fügt einen Trade mit Items aus dem Inventar hinzu.
+    usage: /addtrade
+  addrawtrade:
+    description: Fügt einen Trade via Material-Namen hinzu.
+    usage: /addrawtrade <Mat1> <Anzahl1> <ResultMat> <ResultAnzahl>
+  adjusttrader:
+    description: Ändert Attribute wie Beruf oder Typ.
+    usage: /adjusttrader <Attribut> <Wert>
+  changecooldown:
+    description: Ändert die Reset-Zeit der Angebote.
+    usage: /changecooldown <Sekunden>
+  changename:
+    description: Ändert den Anzeigenamen eines Traders.
+    usage: /changename <Name>

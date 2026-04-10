@@ -1,52 +1,38 @@
 package de.juyas.customtrader.command;
 
-import de.juyas.customtrader.api.TraderAttribute;
 import de.juyas.customtrader.api.TraderNPCHandler;
-import de.juyas.utils.api.command.ArgumentRange;
-import de.juyas.utils.api.hud.Chat;
-import org.bukkit.entity.Entity;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * @author Juyas
- * @version 27.11.2023
- * @since 27.11.2023
- */
-public class ChangeName extends AbstractSelectionCommand
-{
+public class ChangeName extends AbstractSelectionCommand implements TabCompleter {
 
-    private final HashMap<UUID, String> names;
+    @Override
+    public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
+        // Überprüfen, ob ein Name angegeben wurde
+        if (args.length < 1) {
+            player.sendMessage("§cBenutzung: /changename <neuer name>");
+            return;
+        }
 
-    public ChangeName()
-    {
-        super( "name" );
-        setSignature( "name" );
-        setArgumentRange( ArgumentRange.openMax( 1 ) );
-        setDescription( "Gibt einem Händler einen Namen." );
-        names = new HashMap<>();
+        // Alle Argumente zusammenfügen, falls der Name Leerzeichen enthält
+        String newName = String.join(" ", args);
+
+        // Den Namen im Trader-Objekt aktualisieren
+        handler.trader().setName(newName);
+
+        player.sendMessage("§a[CustomTrader] Der Name des Traders wurde in §f" + newName + " §ageändert.");
     }
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        String name = String.join( " ", args );
-        names.put( player.getUniqueId(), name );
-        putInQueue( player );
-        Chat.send( player, "§aKlicke einen Händler an, damit er seinen Namen ändert." );
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        // Tab-Completion kann hier leer bleiben oder Vorschläge für Namen liefern
+        return new ArrayList<>();
     }
-
-    @Override
-    public boolean onInteractKnownTrader( Player player, Entity entity, TraderNPCHandler info )
-    {
-        info.trader().setAttribute( TraderAttribute.NAME, names.get( player.getUniqueId() ) );
-        names.remove( player.getUniqueId() );
-        pullFromQueue( player );
-        info.respawn();
-        Chat.send( player, "§aDer Händler hat nun einen anderen Namen." );
-        return true;
-    }
-
 }

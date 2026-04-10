@@ -1,42 +1,21 @@
 package de.juyas.customtrader.command;
 
-import de.juyas.customtrader.api.TraderAttribute;
 import de.juyas.customtrader.api.TraderNPCHandler;
-import de.juyas.utils.api.hud.Chat;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
-/**
- * @author Juyas
- * @version 27.11.2023
- * @since 27.11.2023
- */
-public class ToggleAnimation extends AbstractSelectionCommand
-{
-
-    public ToggleAnimation()
-    {
-        super( "toggleAnimation" );
-        setMinArgs( 0 );
-        setDescription( "Schalte die Animation eines Händlers an/aus" );
-    }
+public class ToggleAnimation extends AbstractSelectionCommand {
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        putInQueue( player );
-        Chat.send( player, "§aKlicke einen Händler an, um seine Animation umzuschalten." );
+    public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
+        Entity target = player.getTargetEntity(5);
+        if (target instanceof LivingEntity livingTarget) {
+            boolean currentAI = livingTarget.hasAI();
+            livingTarget.setAI(!currentAI);
+            player.sendMessage("§aAnimation / KI für diesen Trader umgeschaltet!");
+        } else {
+            player.sendMessage("§cDieser Trader-Typ unterstützt keine Animationen.");
+        }
     }
-
-    @Override
-    public boolean onInteractKnownTrader( Player player, Entity entity, TraderNPCHandler info )
-    {
-        pullFromQueue( player );
-        boolean animation = info.trader().getAttribute( TraderAttribute.ANIMATION );
-        animation = !animation;
-        info.trader().setAttribute( TraderAttribute.ANIMATION, animation );
-        Chat.send( player, "§7Die Animation des Händlers ist nun " + ( animation ? "§aeingeschaltet." : "§causgeschaltet." ) );
-        return true;
-    }
-
 }

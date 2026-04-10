@@ -1,60 +1,58 @@
 package de.juyas.customtrader.command;
 
-import de.juyas.customtrader.api.TraderAttribute;
 import de.juyas.customtrader.api.TraderNPCHandler;
-import de.juyas.customtrader.villager.VillagerEnumMapper;
-import de.juyas.utils.api.command.TabCompletion;
-import de.juyas.utils.api.hud.Chat;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.*;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
-/**
- * @author Juyas
- * @version 27.11.2023
- * @since 27.11.2023
- */
-@SuppressWarnings({ "UnstableApiUsage" })
-public class ChangeType extends AbstractSelectionCommand
-{
+public class ChangeType extends AbstractSelectionCommand implements TabCompleter {
 
-    private final HashMap<UUID, Villager.Type> changeType;
+    @Override
+    public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
+        if (args.length < 1) {
+            player.sendMessage("§cBenutzung: /changetype <EntityType>");
+            return;
+        }
 
-    public ChangeType()
-    {
-        super( "type" );
-        setSignature( "type" );
-        setMinArgs( 1 );
-        setDescription( "Ändere den Biom-Typ eines Händlers" );
-        changeType = new HashMap<>();
+        try {
+            // Umwandeln der Eingabe in einen gültigen EntityType
+            EntityType type = EntityType.valueOf(args[0].toUpperCase());
+
+            if (!type.isAlive()) {
+                player.sendMessage("§cDieser Typ ist für einen Trader nicht geeignet!");
+                return;
+            }
+
+            // Typ im Trader-Modell aktualisieren
+            handler.trader().setType(type);
+
+            player.sendMessage("§a[CustomTrader] Typ wurde auf §f" + type.name() + " §agesetzt.");
+            player.sendMessage("§7(Hinweis: Der NPC muss eventuell neu geladen werden)");
+
+        } catch (IllegalArgumentException e) {
+            player.sendMessage("§cUngültiger Entity-Typ! Nutze die Tab-Vervollständigung.");
+        }
     }
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        Villager.Type type = VillagerEnumMapper.mapType( args[0] );
-        putInQueue( player );
-        changeType.put( player.getUniqueId(), type );
-        Chat.send( player, "§aKlicke einen Händler an, um seinen Biom-Typ zu §9" + VillagerEnumMapper.map( type ) + " §azu ändern." );
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        if (args.length == 1) {
+            // Schlägt nur lebendige Entities vor (Villager, Zombie, etc.)
+            return Arrays.stream(EntityType.values())
+                    .filter(EntityType::isAlive)
+                    .map(Enum::name)
+                    .map(String::toLowerCase)
+                    .filter(name -> name.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+        return null;
     }
-
-    @Override
-    public boolean onInteractKnownTrader( Player player, Entity entity, TraderNPCHandler info )
-    {
-        info.trader().setAttribute( TraderAttribute.VILLAGER_TYPE, changeType.get( player.getUniqueId() ) );
-        changeType.remove( player.getUniqueId() );
-        pullFromQueue( player );
-        info.respawn();
-        Chat.send( player, "§aDer Händler ist nun vom Biom-Typ §9" + VillagerEnumMapper.map( info.trader().getAttribute( TraderAttribute.VILLAGER_TYPE ) ) );
-        return true;
-    }
-
-    @Override
-    public TabCompletion tabOptions( CommandSender sender, String[] args )
-    {
-        return args.length == 1 ? () -> Arrays.stream( VillagerEnumMapper.typeValues() )
-                .map( VillagerEnumMapper::map ).toList() : TabCompletion.NONE;
-    }
-
 }

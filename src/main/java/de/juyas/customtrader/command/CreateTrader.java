@@ -1,65 +1,55 @@
 package de.juyas.customtrader.command;
 
-import de.juyas.utils.api.command.Arguments;
-import de.juyas.utils.api.command.TabCompletion;
-import de.juyas.utils.api.hud.Chat;
+import de.juyas.customtrader.CustomTraderPlugin;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.*;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
-import java.util.HashSet;
-import java.util.UUID;
-
-/**
- * @author Juyas
- * @version 26.11.2023
- * @since 26.11.2023
- */
-public class CreateTrader extends AbstractSelectionCommand
-{
-
-    private final HashSet<UUID> npcRegistration = new HashSet<>();
-
-    public CreateTrader()
-    {
-        super( "create", "new" );
-        setSignature( "citizens?" );
-        setMinArgs( 0 );
-        setDescription( "Erstellt einen neuen Händler auf Basis eines vorhandenen Dorfbewohners.",
-                "Optional kann sich für ein Citizens NPC entschieden werden." );
-    }
+public class CreateTrader implements CommandExecutor {
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        if ( inQueue( player ) )
-        {
-            player.sendMessage( "§cDu musst schon den Händler anklicken..." );
-            return;
-        }
-        putInQueue( player );
-        if ( Arguments.optBool( player, args, 0 ).orElse( false ) )
-            npcRegistration.add( player.getUniqueId() );
-        Chat.send( player, "§aKlicke nun den Händler an, der registriert werden soll." );
-    }
-
-    @Override
-    public boolean onInteractUnknownEntity( Player player, Entity entity )
-    {
-        if ( entity instanceof Villager villager )
-        {
-            boolean asNPC = npcRegistration.contains( player.getUniqueId() );
-            manager().registerNew( villager, asNPC );
-            npcRegistration.remove( player.getUniqueId() );
-            pullFromQueue( player );
-            Chat.send( player, "§aDer neue Händler steht nun im Handelsregister. Citizens bevorzugt: " + asNPC );
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("§cNur Spieler können diesen Befehl ausführen.");
             return true;
         }
-        return false;
-    }
 
-    @Override
-    public TabCompletion tabOptions( CommandSender sender, String[] args )
-    {
-        return args.length == 1 ? TabCompletion.BOOLEAN : TabCompletion.NONE;
+        if (args.length < 1) {
+            player.sendMessage("§cBenutzung: /createtrader <Name>");
+            return true;
+        }
+
+        // Wir suchen das Entity, das der Spieler anschaut
+        Entity entity = player.getTargetEntity(5);
+
+        if (entity == null) {
+            player.sendMessage("§cDu musst ein Wesen (z.B. einen Villager) anschauen, um es zu einem Trader zu machen!");
+            return true;
+        }
+
+        // Wir prüfen, ob es vielleicht SCHON ein Trader ist
+        if (CustomTraderPlugin.getInstance().getManager().getTrader(entity.getUniqueId()) != null) {
+            player.sendMessage("§cDieses Wesen ist bereits ein registrierter Trader!");
+            return true;
+        }
+
+        // Den Namen aus den Argumenten zusammensetzen (falls er Leerzeichen hat)
+        String name = String.join(" ", args);
+
+        // Den Trader im Manager registrieren
+        boolean isNpc = entity.hasMetadata("NPC"); // Einfacher Check, ob es ein Citizens NPC ist
+        CustomTraderPlugin.getInstance().getManager().createTrader(
+                entity.getUniqueId(),
+                name,
+                entity.getLocation(),
+                entity.getType(),
+                isNpc
+        );
+
+        player.sendMessage("§a[CustomTrader] Trader §f" + name + " §aerfolgreich erstellt!");
+        return true;
     }
 }

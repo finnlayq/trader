@@ -1,66 +1,42 @@
 package de.juyas.customtrader.command;
 
-import de.juyas.customtrader.api.TraderAttribute;
 import de.juyas.customtrader.api.TraderNPCHandler;
-import de.juyas.utils.api.command.Arguments;
-import de.juyas.utils.api.hud.Chat;
-import net.citizensnpcs.util.MojangSkinGenerator;
-import org.bukkit.entity.Entity;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
-import org.json.simple.JSONObject;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
-/**
- * @author Juyas
- * @version 27.11.2023
- * @since 27.11.2023
- */
-public class ChangeSkin extends AbstractSelectionCommand
-{
-
-    private final HashMap<UUID, String[]> skinUpdates;
-
-    public ChangeSkin()
-    {
-        super( "skin" );
-        setSignature( "url", "slim?" );
-        setMinArgs( 1 );
-        setDescription( "Lädt einen Skin von URL und weist einem Händler diesen zu." );
-        skinUpdates = new HashMap<>();
-    }
+public class ChangeSkin extends AbstractSelectionCommand implements TabCompleter {
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        try
-        {
-            JSONObject object = MojangSkinGenerator.generateFromURL( args[0], Arguments.optBool( player, args, 1 ).orElse( false ) );
-            //String uuid = (String) object.get( "uuid" );
-            JSONObject texture = (JSONObject) object.get( "texture" );
-            String signature = (String) texture.get( "signature" );
-            String data = (String) texture.get( "value" );
-            this.skinUpdates.put( player.getUniqueId(), new String[] { signature, data } );
-        }
-        catch ( Exception e )
-        {
-            player.sendMessage( "§cDer Link funktioniert nicht: \"§7" + args[0] + "§c\"" );
+    public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
+        if (args.length < 1) {
+            player.sendMessage("§cBenutzung: /changeskin <Spielername>");
             return;
         }
-        putInQueue( player );
-        Chat.send( player, "§aKlicke einen Händler an, damit er seine Kleidung ändert." );
+
+        String skinSource = args[0];
+
+        // Hier wird normalerweise die Skin-Änderung über Citizens oder dein System getriggert
+        player.sendMessage("§a[CustomTrader] Versuche, den Skin auf §f" + skinSource + " §azu ändern...");
+
+        // Beispiel-Logik:
+        // handler.setSkin(skinSource);
     }
 
     @Override
-    public boolean onInteractKnownTrader( Player player, Entity entity, TraderNPCHandler info )
-    {
-        info.trader().setAttribute( TraderAttribute.SKIN, skinUpdates.get( player.getUniqueId() ) );
-        skinUpdates.remove( player.getUniqueId() );
-        pullFromQueue( player );
-        info.respawn();
-        Chat.send( player, "§aDer Händler hat nun andere Kleidung an." );
-        return true;
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        // Tab-Completion für online Spieler als Skin-Vorschlag
+        if (args.length == 1) {
+            List<String> playerNames = new ArrayList<>();
+            org.bukkit.Bukkit.getOnlinePlayers().forEach(p -> playerNames.add(p.getName()));
+            return playerNames;
+        }
+        return new ArrayList<>();
     }
-
 }

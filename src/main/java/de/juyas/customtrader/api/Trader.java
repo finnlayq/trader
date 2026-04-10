@@ -1,37 +1,17 @@
 package de.juyas.customtrader.api;
 
+import de.juyas.customtrader.model.TradeOfferEntry;
 import org.bukkit.Location;
-import org.jetbrains.annotations.NotNull;
-
+import org.bukkit.entity.EntityType;
 import java.util.List;
+import java.util.UUID;
 
-/**
- * @author Juyas
- * @version 22.11.2024
- * @since 22.11.2024
- */
-public interface Trader
-{
-
-    Location location();
-
-    @NotNull
-    <T> T getAttribute( TraderAttribute<T> attribute );
-
-    <T> void setAttribute( TraderAttribute<T> attribute, T value );
-
-    boolean hasNPCSkin();
-
-    List<TradeOffer> offers();
-
-    void addOffer( TradeOfferData offer );
-
-    boolean removeOffer( long id );
-
-    void removeAllOffers();
-
-    void deleteData();
-
-    void updateData();
-
+public interface Trader {
+    UUID getId();
+    Location getLocation();
+    <T> T getAttribute(TraderAttribute attribute);
+    void setLocation(Location location);
+    boolean isNpc();
+    EntityType getType();
+    List<TradeOfferEntry> getOffers();
 }

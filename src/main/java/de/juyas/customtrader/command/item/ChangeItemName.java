@@ -1,49 +1,44 @@
 package de.juyas.customtrader.command.item;
 
-import de.juyas.utils.api.BukkitLegacy;
-import de.juyas.utils.api.command.ArgumentRange;
-import de.juyas.utils.api.command.PlayerCommand;
-import de.juyas.utils.api.hud.Chat;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.TextDecoration;
+import de.juyas.customtrader.util.Chat;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.NotNull;
 
-/**
- * @author Juyas
- * @version 23.01.2025
- * @since 23.01.2025
- */
-public final class ChangeItemName extends PlayerCommand
-{
-
-    public ChangeItemName()
-    {
-        super( "name" );
-        setArgumentRange( ArgumentRange.openMax( 1 ) );
-        setDescription( "Changes the name of the item in hand." );
-    }
+public class ChangeItemName implements CommandExecutor {
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        String name = String.join( " ", args );
-        Component textComponent = BukkitLegacy.legacyText( name );
-        if ( !textComponent.hasDecoration( TextDecoration.ITALIC ) )
-            textComponent = textComponent.decoration( TextDecoration.ITALIC, false );
-        PlayerInventory inventory = player.getInventory();
-        ItemStack mainHand = inventory.getItemInMainHand();
-        if ( mainHand.isEmpty() )
-        {
-            Chat.send( player, "§cKein Item in der Hand." );
-            return;
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("Nur Spieler können diesen Befehl nutzen.");
+            return true;
         }
-        Component finalTextComponent = textComponent;
-        if ( !mainHand.editMeta( meta -> meta.displayName( finalTextComponent ) ) )
-        {
-            Chat.send( player, "§cName konnte nicht geändert werden." );
-        }
-    }
 
+        if (args.length == 0) {
+            Chat.send(player, "&cBenutzung: /changeitemname <Name>");
+            return true;
+        }
+
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (item == null || item.getType().isAir()) {
+            Chat.send(player, "&cDu musst ein Item in der Hand halten!");
+            return true;
+        }
+
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return true;
+
+        // Namen aus Argumenten zusammenbauen und Farbcodes (& -> §) ersetzen
+        String newName = String.join(" ", args).replace("&", "§");
+
+        meta.setDisplayName(newName);
+        item.setItemMeta(meta);
+
+        Chat.send(player, "&aItem-Name geändert zu: &r" + newName);
+        return true;
+    }
 }

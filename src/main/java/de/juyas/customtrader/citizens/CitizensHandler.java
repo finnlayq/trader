@@ -1,127 +1,32 @@
 package de.juyas.customtrader.citizens;
 
-import de.juyas.customtrader.api.*;
-import lombok.Getter;
-import net.citizensnpcs.api.CitizensAPI;
-import net.citizensnpcs.api.npc.*;
-import net.citizensnpcs.trait.*;
-import org.bukkit.Location;
-import org.bukkit.Particle;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
+import de.juyas.customtrader.TraderManager;
+import de.juyas.customtrader.api.TraderNPCHandler;
+import net.citizensnpcs.api.event.NPCRightClickEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
 
-import java.util.UUID;
+public class CitizensHandler implements Listener {
 
-/**
- * @author Juyas
- * @version 23.11.2024
- * @since 23.11.2024
- */
-public final class CitizensHandler implements TraderNPCHandler
-{
+    private final TraderManager manager;
 
-    @Getter
-    private static NPCRegistry npcRegistry;
-
-    public static void init()
-    {
-        if ( npcRegistry != null )
-            deregister();
-        npcRegistry = CitizensAPI.createAnonymousNPCRegistry( new MemoryNPCDataStore() );
+    public CitizensHandler(TraderManager manager) {
+        this.manager = manager;
     }
 
-    public static void deregister()
-    {
-        npcRegistry.deregisterAll();
-        npcRegistry = null;
-    }
+    @EventHandler
+    public void onNPCClick(NPCRightClickEvent event) {
+        // Sicherstellen, dass das Entity des NPCs existiert
+        if (event.getNPC().getEntity() != null) {
 
-    private final Trader traderData;
-    private final TraderResetTimer resetTimer;
-    private NPC activeNpc;
+            // FIX: .getUniqueId() hinzugefügt, um die UUID statt des Entity-Objekts zu nutzen
+            Object trader = manager.getTrader(event.getNPC().getEntity().getUniqueId());
 
-    public CitizensHandler( Trader traderData )
-    {
-        this.traderData = traderData;
-        this.activeNpc = null;
-        this.resetTimer = new TraderResetTimer( this );
-    }
-
-    @Override
-    public Entity entity()
-    {
-        return activeNpc != null ? activeNpc.getEntity() : null;
-    }
-
-    @Override
-    public Trader trader()
-    {
-        return traderData;
-    }
-
-    @Override
-    public boolean matchEntity( Entity entity )
-    {
-        return this.activeNpc != null && this.activeNpc.getEntity() != null
-                && entity != null && this.activeNpc.getEntity().equals( entity );
-    }
-
-    @Override
-    public TraderResetTimer timer()
-    {
-        return resetTimer;
-    }
-
-    @Override
-    public void playAnimation()
-    {
-        Entity entity = entity();
-        if ( entity == null ) return;
-        Location location = entity.getLocation().add( 0, 1.5, 0 );
-        entity.getWorld().spawnParticle( Particle.COMPOSTER, location, 15, 0.3, 0.3, 0.3 );
-    }
-
-    @Override
-    public void resetOffers()
-    {
-        if ( activeNpc == null ) return;
-        this.activeNpc.getTraitOptional( TraderTrait.class ).toJavaUtil().ifPresent( TraderTrait::reset );
-    }
-
-    @Override
-    public void spawn()
-    {
-        if ( activeNpc != null ) despawn();
-        String name = traderData.getAttribute( TraderAttribute.NAME );
-        activeNpc = npcRegistry.createNPC( EntityType.PLAYER, name );
-        if ( traderData.hasNPCSkin() )
-        {
-            SkinTrait skinTrait = new SkinTrait();
-            activeNpc.addTrait( skinTrait );
-            String[] skin = traderData.getAttribute( TraderAttribute.SKIN );
-            skinTrait.setSkinPersistent( UUID.randomUUID().toString(), skin[0], skin[1] );
+            // Hier folgt normalerweise die Logik zum Öffnen des Trader-Inventars
+            if (trader instanceof TraderNPCHandler) {
+                TraderNPCHandler handler = (TraderNPCHandler) trader;
+                // handler.openInventory(event.getClicker());
+            }
         }
-        LookClose lookClose = new LookClose();
-        lookClose.setTargetNPCs( false );
-        lookClose.setRange( 4.0 );
-        lookClose.lookClose( true );
-        activeNpc.addTrait( lookClose );
-        activeNpc.addTrait( HologramTrait.class );
-        activeNpc.getTraitOptional( HologramTrait.class ).toJavaUtil().ifPresent( trait -> trait.addLine( name ) );
-        activeNpc.data().set( NPC.Metadata.NAMEPLATE_VISIBLE, false );
-        activeNpc.addTrait( new TraderTrait( traderData ) );
-        if ( activeNpc.spawn( traderData.location() ) )
-            resetTimer.start();
     }
-
-    @Override
-    public void despawn()
-    {
-        resetTimer.stop();
-        if ( activeNpc == null ) return;
-        activeNpc.despawn();
-        activeNpc.destroy();
-        activeNpc = null;
-    }
-
 }

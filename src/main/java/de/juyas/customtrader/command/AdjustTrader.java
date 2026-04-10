@@ -1,87 +1,38 @@
 package de.juyas.customtrader.command;
 
-import de.juyas.customtrader.api.TraderAttribute;
 import de.juyas.customtrader.api.TraderNPCHandler;
-import de.juyas.utils.api.command.TabCompletion;
-import de.juyas.utils.api.hud.Chat;
-import org.bukkit.Location;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Entity;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-/**
- * @author Juyas
- * @version 26.11.2023
- * @since 26.11.2023
- */
-public class AdjustTrader extends AbstractSelectionCommand
-{
-
-    public record Adjustments(boolean centerX, boolean centerZ, boolean groundY, Float yaw, Float pitch) {}
-
-    private final HashMap<UUID, Adjustments> adjustmentMap;
-
-    public AdjustTrader()
-    {
-        super( "align", "adjust" );
-        setSignature( "centerX", "centerZ", "groundY", "yaw", "pitch" );
-        setDescription( "Korrigiert die Position eines Händlers" );
-        setMinArgs( 3 );
-        this.adjustmentMap = new HashMap<>();
-    }
+public class AdjustTrader extends AbstractSelectionCommand implements TabCompleter {
 
     @Override
-    public void onPlayerCommand( Player player, String[] args )
-    {
-        Float yaw, pitch;
-        boolean centerX, centerZ, groundY;
-        try
-        {
-            centerX = Boolean.parseBoolean( args[0] );
-            centerZ = Boolean.parseBoolean( args[1] );
-            groundY = Boolean.parseBoolean( args[2] );
-            yaw = args.length == 5 ? Float.parseFloat( args[3] ) : null;
-            pitch = args.length == 5 ? Float.parseFloat( args[4] ) : null;
-        }
-        catch ( Exception e )
-        {
+    public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
+        // Diese Methode wird aufgerufen, wenn ein Spieler einen Trader anschaut und den Befehl nutzt.
+        if (args.length < 1) {
+            player.sendMessage("§cBenutzung: /adjusttrader <name|type|npc|animation> <wert>");
             return;
         }
-        Adjustments adjustments = new Adjustments( centerX, centerZ, groundY, yaw, pitch );
-        adjustmentMap.put( player.getUniqueId(), adjustments );
-        putInQueue( player );
-        Chat.send( player, "§aKlicke nun den Händler an, der justiert werden soll." );
+
+        String subCommand = args[0].toLowerCase();
+        player.sendMessage("§a[CustomTrader] Bearbeite Eigenschaft: §f" + subCommand);
+
+        // Hier folgt normalerweise die Logik, um Name, Typ oder NPC-Status zu ändern.
     }
 
     @Override
-    public boolean onInteractKnownTrader( Player player, Entity entity, TraderNPCHandler info )
-    {
-        Location location = info.trader().location();
-        Adjustments adjustments = adjustmentMap.get( player.getUniqueId() );
-        if ( adjustments.centerX() ) location.setX( location.getBlockX() + 0.5f );
-        if ( adjustments.centerZ() ) location.setZ( location.getBlockZ() + 0.5f );
-        if ( adjustments.groundY() ) location.setY( location.getBlockY() + 0.05f );
-        if ( adjustments.yaw() != null && adjustments.pitch() != null )
-        {
-            location.setYaw( adjustments.yaw() );
-            location.setPitch( adjustments.pitch() );
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        if (args.length == 1) {
+            return Arrays.asList("name", "type", "npc", "animation");
         }
-        info.trader().setAttribute( TraderAttribute.LOCATION, location );
-        pullFromQueue( player );
-        info.respawn();
-        Chat.send( player, "§aHändler wurde angewiesen sich ordentlich hinzustellen." );
-        return true;
+        return new ArrayList<>();
     }
-
-    @Override
-    public TabCompletion tabOptions( CommandSender sender, String[] args )
-    {
-        if ( args.length == 1 || args.length == 2 || args.length == 3 )
-            return TabCompletion.BOOLEAN;
-        return TabCompletion.NONE;
-    }
-
 }
