@@ -6,8 +6,8 @@ import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 
 import java.io.File;
@@ -23,7 +23,6 @@ public class TraderManager {
     private final File file;
     private FileConfiguration config;
 
-    // Fix für CustomTraderPlugin.java:20
     public TraderManager() {
         this(CustomTraderPlugin.getInstance().getDataFolder());
     }
@@ -41,7 +40,6 @@ public class TraderManager {
         reload();
     }
 
-    // Fix für Reload.java:24 und ReloadTrader.java:15
     public void reload() {
         traders.clear();
         config = YamlConfiguration.loadConfiguration(file);
@@ -67,7 +65,6 @@ public class TraderManager {
         }
     }
 
-    // Fix für SpawnAll.java:17 und CustomTraderPlugin.java:27
     public void spawn() {
         for (TraderEntry entry : traders) {
             spawn(entry);
@@ -79,26 +76,37 @@ public class TraderManager {
         Location loc = entry.getLocation();
         if (loc == null || loc.getWorld() == null) return;
 
+        // --- ANTI-GHOST-VILLAGER LOGIK ---
+        // Entferne alle Entities (außer Spieler) an dieser Stelle, bevor wir neu spawnen
+        loc.getWorld().getNearbyEntities(loc, 0.5, 1.0, 0.5).forEach(e -> {
+            if (!(e instanceof Player)) {
+                e.remove();
+            }
+        });
+
+        // Alten Trader anhand der ID löschen (falls noch irgendwo geladen)
         Entity old = Bukkit.getEntity(entry.getId());
         if (old != null) old.remove();
 
+        // Neuen Trader spawnen
         Entity entity = loc.getWorld().spawnEntity(loc, entry.getType());
         entry.setId(entity.getUniqueId());
+        save(); // Neue ID direkt permanent speichern
 
         Bukkit.getScheduler().runTaskLater(CustomTraderPlugin.getInstance(), () -> {
-            entity.setCustomName(entry.getName());
+            entity.setCustomName(entry.getName().replace("&", "§"));
             entity.setCustomNameVisible(true);
 
             if (entity instanceof LivingEntity living) {
-                living.setInvulnerable(true);
-                boolean isAnimated = entry.isAnimationEnabled();
-                living.setAI(isAnimated);
-                living.setSilent(!isAnimated);
+                living.setInvulnerable(true); // HCS Schutz
+                living.setAI(entry.isAnimationEnabled());
+                living.setSilent(!entry.isAnimationEnabled());
                 living.setPersistent(true);
             }
 
             if (entity instanceof Villager villager) {
                 villager.setProfession(entry.getProfession());
+                villager.setVillagerType(entry.getVillagerType());
                 villager.setRecipes(entry.getOffers().stream()
                         .map(de.juyas.customtrader.model.TradeOfferEntry::getRecipe)
                         .collect(Collectors.toList()));
@@ -106,23 +114,27 @@ public class TraderManager {
         }, 2L);
     }
 
-    // Fix für WipeAll.java:17 und Reload.java:21
     public void despawnAll() {
         for (TraderEntry entry : traders) {
             Entity entity = Bukkit.getEntity(entry.getId());
             if (entity != null) entity.remove();
+
+            // Falls die ID nicht gefunden wurde, zur Sicherheit am Ort suchen
+            Location loc = entry.getLocation();
+            if (loc != null && loc.getWorld() != null) {
+                loc.getWorld().getNearbyEntities(loc, 0.5, 1.0, 0.5).forEach(e -> {
+                    if (!(e instanceof Player)) e.remove();
+                });
+            }
             entry.setActive(false);
         }
         save();
     }
 
-    // Fix für CitizensHandler.java:19, CreateTrader.java:34, AbstractSelectionCommand:29, DeletionListener:15
     public TraderEntry getTrader(UUID id) {
-        if (id == null) return null;
         return traders.stream().filter(t -> t.getId().equals(id)).findFirst().orElse(null);
     }
 
-    // Fix für RemoveTrader.java:11 und DeletionListener:18
     public void removeTrader(UUID id) {
         TraderEntry entry = getTrader(id);
         if (entry != null) {
@@ -133,8 +145,7 @@ public class TraderManager {
         }
     }
 
-    // Fix für CreateTrader.java:44
-    public void createTrader(UUID id, String name, Location loc, EntityType type, boolean active) {
+    public void createTrader(UUID id, String name, Location loc, org.bukkit.entity.EntityType type, boolean active) {
         TraderEntry entry = new TraderEntry(id, name, loc, type, active);
         traders.add(entry);
         spawn(entry);

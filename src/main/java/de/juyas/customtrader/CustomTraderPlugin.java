@@ -4,7 +4,10 @@ import de.juyas.customtrader.api.Presets;
 import de.juyas.customtrader.command.*;
 import de.juyas.customtrader.listener.DeletionListener;
 import de.juyas.customtrader.listener.TraderDamageListener;
+import de.juyas.customtrader.model.TradeOfferEntry;
+import de.juyas.customtrader.model.TraderEntry;
 import org.bukkit.Bukkit;
+import org.bukkit.configuration.serialization.ConfigurationSerialization;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class CustomTraderPlugin extends JavaPlugin {
@@ -17,18 +20,26 @@ public class CustomTraderPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        // 1. WICHTIG: Klassen für die Config registrieren (behebt den Global Tag Fehler)
+        ConfigurationSerialization.registerClass(TraderEntry.class);
+        ConfigurationSerialization.registerClass(TradeOfferEntry.class);
+
         instance = this;
+
+        // 2. Manager initialisieren (erstellt/lädt traders.yml)
         manager = new TraderManager();
 
-        // Dynamische Presets laden
+        // 3. Dynamische Presets laden
         Presets.load();
 
+        // 4. Commands registrieren
         registerCommands();
 
-        // Listener registrieren
+        // 5. Listener registrieren
         Bukkit.getPluginManager().registerEvents(new DeletionListener(), this);
-        Bukkit.getPluginManager().registerEvents(new TraderDamageListener(), this); // NEU: Macht Trader unsterblich
+        Bukkit.getPluginManager().registerEvents(new TraderDamageListener(), this);
 
+        // 6. Alle aktiven Trader in die Welt setzen
         manager.spawn();
     }
 
@@ -73,7 +84,8 @@ public class CustomTraderPlugin extends JavaPlugin {
     public void onDisable() {
         if (manager != null) {
             manager.save();
-            manager.despawnAll();
+            // Optional: Wenn du willst, dass sie beim Stop verschwinden:
+            // manager.despawnAll();
         }
     }
 }

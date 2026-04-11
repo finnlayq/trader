@@ -6,10 +6,10 @@ import java.util.function.Function;
 
 public enum TraderAttribute {
 
-    VILLAGER_PROFESSION(entry -> Villager.Profession.NONE),
-    VILLAGER_TYPE(entry -> Villager.Type.PLAINS),
-    REFRESH_SECONDS(entry -> entry.getRefreshSeconds()),
-    ANIMATION(entry -> entry.isAnimationEnabled());
+    VILLAGER_PROFESSION(TraderEntry::getProfession),
+    VILLAGER_TYPE(TraderEntry::getVillagerType),
+    REFRESH_SECONDS(TraderEntry::getRefreshSeconds),
+    ANIMATION(TraderEntry::isAnimationEnabled);
 
     private final Function<TraderEntry, ?> getter;
 
@@ -18,7 +18,7 @@ public enum TraderAttribute {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> T getValue(TraderEntry entry) {
-        return (T) getter.apply(entry);
+    public <T> Function<TraderEntry, T> getGetter() {
+        return (Function<TraderEntry, T>) getter;
     }
 }
