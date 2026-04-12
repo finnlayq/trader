@@ -1,49 +1,10 @@
 name: CustomTrader
-version: '1.0'
+version: 1.0
 main: de.juyas.customtrader.CustomTraderPlugin
-api-version: '1.21'
+api-version: 1.21
 depend: [Citizens]
-
 commands:
-  createtrader:
-    description: Erstellt einen neuen Trader
-  removetrader:
-    description: Loescht einen Trader
-  addtrade:
-    description: Fuegt einen Trade hinzu
-  addrawtrade:
-    description: Fuegt einen rohen Trade hinzu
-  deletetrade:
-    description: Loescht einen Trade
-  defaulttrades:
-    description: Laedt Standard-Trades
-  adjusttrader:
-    description: Passt den Trader an
-  changecooldown:
-    description: Aendert den Cooldown
-  changename:
-    description: Aendert den Namen
-  changeprofession:
-    description: Aendert den Beruf eines Villagers
-  changeskin:
-    description: Aendert den Skin
-  changetype:
-    description: Aendert das Wesen des Traders
-  movetrader:
-    description: Bewegt den Trader zu dir
-  showinfo:
-    description: Zeigt Infos ueber den Trader
-  toggleanimation:
-    description: Friert den Trader ein oder laesst ihn laufen
-  reloadtrader:
-    description: Laedt alle Trader neu
-  spawnall:
-    description: Spawnt alle Trader manuell
-  wipeall:
-    description: Entfernt alle Trader aus der Welt
-  applypreset:
-    description: Wendet ein Handels-Preset (normal1, normal2, lucastro, ochsfurth) an.
-  changeprice:
-    description: Ändert die Mengen/ den Preis eines bestehenden Trades.
-  movetrader:
-    description: Teleportiert den ausgewählten Trader zu dir.
+  trader:
+    description: Hauptbefehl für alle CustomTrader Aktionen.
+    aliases: [t, ct]
+    usage: /trader <subcommand>

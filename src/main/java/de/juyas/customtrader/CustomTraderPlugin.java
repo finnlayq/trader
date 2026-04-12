@@ -1,7 +1,7 @@
 package de.juyas.customtrader;
 
 import de.juyas.customtrader.api.Presets;
-import de.juyas.customtrader.command.*;
+import de.juyas.customtrader.command.MainCommand;
 import de.juyas.customtrader.listener.DeletionListener;
 import de.juyas.customtrader.listener.TraderDamageListener;
 import de.juyas.customtrader.model.TradeOfferEntry;
@@ -20,19 +20,19 @@ public class CustomTraderPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        // 1. WICHTIG: Klassen für die Config registrieren (behebt den Global Tag Fehler)
+        // 1. Klassen für die Config registrieren
         ConfigurationSerialization.registerClass(TraderEntry.class);
         ConfigurationSerialization.registerClass(TradeOfferEntry.class);
 
         instance = this;
 
-        // 2. Manager initialisieren (erstellt/lädt traders.yml)
+        // 2. Manager initialisieren
         manager = new TraderManager();
 
         // 3. Dynamische Presets laden
         Presets.load();
 
-        // 4. Commands registrieren
+        // 4. Zentralen Command registrieren
         registerCommands();
 
         // 5. Listener registrieren
@@ -44,39 +44,13 @@ public class CustomTraderPlugin extends JavaPlugin {
     }
 
     private void registerCommands() {
-        AddRawTrade art = new AddRawTrade();
-        registerCommand("addrawtrade", art, art);
+        // Wir nutzen nur noch den MainCommand als zentralen Verteiler
+        MainCommand mainCmd = new MainCommand();
+        var cmd = getCommand("trader");
 
-        ApplyPreset ap = new ApplyPreset();
-        registerCommand("applypreset", ap, ap);
-
-        ChangeType ct = new ChangeType();
-        registerCommand("changetype", ct, ct);
-
-        ChangeProfession cp = new ChangeProfession();
-        registerCommand("changeprofession", cp, cp);
-
-        ChangePrice cpPrice = new ChangePrice();
-        registerCommand("changeprice", cpPrice, cpPrice);
-
-        registerCommand("createtrader", new CreateTrader(), null);
-        registerCommand("removetrader", new RemoveTrader(), null);
-        registerCommand("toggleanimation", new ToggleAnimation(), null);
-        registerCommand("spawnall", new SpawnAll(), null);
-        registerCommand("wipeall", new WipeAll(), null);
-        registerCommand("showinfo", new ShowInfo(), null);
-        registerCommand("changename", new ChangeName(), null);
-        registerCommand("reloadtrader", new ReloadTrader(), null);
-
-        MoveTrader moveCmd = new MoveTrader();
-        registerCommand("movetrader", moveCmd, moveCmd);
-    }
-
-    private void registerCommand(String name, org.bukkit.command.CommandExecutor ex, org.bukkit.command.TabCompleter tab) {
-        var cmd = getCommand(name);
         if (cmd != null) {
-            cmd.setExecutor(ex);
-            if (tab != null) cmd.setTabCompleter(tab);
+            cmd.setExecutor(mainCmd);
+            cmd.setTabCompleter(mainCmd);
         }
     }
 
@@ -84,8 +58,6 @@ public class CustomTraderPlugin extends JavaPlugin {
     public void onDisable() {
         if (manager != null) {
             manager.save();
-            // Optional: Wenn du willst, dass sie beim Stop verschwinden:
-            // manager.despawnAll();
         }
     }
 }
