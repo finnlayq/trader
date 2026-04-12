@@ -3,68 +3,72 @@ package de.juyas.customtrader.command;
 import de.juyas.customtrader.api.TraderNPCHandler;
 import de.juyas.customtrader.model.TradeOfferEntry;
 import org.bukkit.Material;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Villager;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
-public class AddRawTrade extends AbstractSelectionCommand implements TabCompleter {
+public class AddRawTrade extends AbstractSelectionCommand {
 
     @Override
     public void onSelectionCommand(Player player, TraderNPCHandler handler, String[] args) {
-        if (args.length < 4) {
-            player.sendMessage("§cBenutzung: /addrawtrade <Item1> <Menge1> <Ergebnis> <Menge2>");
+        Material payMat = Material.EMERALD;
+        int payAmount = 1;
+        Material getMat = Material.APPLE;
+        int getAmount = 1;
+
+        try {
+            if (args.length >= 1) payMat = Material.getMaterial(args[0].toUpperCase());
+            if (args.length >= 2) payAmount = Integer.parseInt(args[1]);
+            if (args.length >= 3) getMat = Material.getMaterial(args[2].toUpperCase());
+            if (args.length >= 4) getAmount = Integer.parseInt(args[3]);
+
+            if (payMat == null || getMat == null) throw new Exception();
+        } catch (Exception e) {
+            player.sendMessage("§cFehler: /t addrawtrade <BezahlItem> <Menge> <ErgebnisItem> <Menge>");
             return;
         }
 
-        try {
-            Material mat1 = Material.valueOf(args[0].toUpperCase());
-            int amount1 = Integer.parseInt(args[1]);
-            Material mat2 = Material.valueOf(args[2].toUpperCase());
-            int amount2 = Integer.parseInt(args[3]);
+        // 1. Neues Rezept erstellen
+        ItemStack buy1 = new ItemStack(payMat, payAmount);
+        ItemStack result = new ItemStack(getMat, getAmount);
+        MerchantRecipe recipe = new MerchantRecipe(result, 999);
+        recipe.addIngredient(buy1);
+        recipe.setExperienceReward(false);
+        recipe.setVillagerExperience(0);
 
-            MerchantRecipe recipe = new MerchantRecipe(new ItemStack(mat2, amount2), 999999);
-            recipe.addIngredient(new ItemStack(mat1, amount1));
+        // 2. Im Daten-Modell speichern (für Neustarts)
+        handler.trader().getOffers().add(new TradeOfferEntry(recipe));
 
-            handler.trader().getOffers().add(new TradeOfferEntry(recipe));
+        // 3. LIVE-UPDATE am Villager erzwingen
+        // Wir holen das Entity direkt vom Handler (egal ob NPC oder normales Entity)
+        org.bukkit.entity.Entity entity = handler.getEntity();
+        if (entity == null) {
+            // Falls Citizens NPC, probieren wir das Bukkit-Entity des NPCs zu holen
+            if (handler.getNpc() != null && handler.getNpc().isSpawned()) {
+                entity = handler.getNpc().getEntity();
+            }
+        }
 
-            if (player.getTargetEntity(5) instanceof Villager villager) {
-                villager.setRecipes(handler.trader().getOffers().stream()
-                        .map(TradeOfferEntry::getRecipe)
-                        .collect(Collectors.toList()));
+        if (entity instanceof Villager villager) {
+            // WICHTIG: Liste komplett neu aufbauen
+            List<MerchantRecipe> recipes = new ArrayList<>();
+            for (TradeOfferEntry offer : handler.trader().getOffers()) {
+                recipes.add(offer.getRecipe());
             }
 
-            player.sendMessage("§a[CustomTrader] Trade hinzugefügt!");
-            de.juyas.customtrader.CustomTraderPlugin.getInstance().getManager().save();
+            // Den Villager zwingen die Rezepte zu übernehmen
+            villager.setRecipes(recipes);
 
-        } catch (Exception e) {
-            player.sendMessage("§cFehler: " + e.getMessage());
+            // Kleiner Trick: Manche Villager brauchen einen "Anstoß", um das Inventar zu refreshen
+            player.sendMessage("§aTrade live aktualisiert am Villager!");
+        } else {
+            player.sendMessage("§6Trade gespeichert, aber Entity ist kein Villager (Typ: " + (entity != null ? entity.getType() : "null") + ")");
         }
-    }
 
-    @Override
-    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
-        // Schlägt Materialien bei Argument 1 und 3 vor
-        if (args.length == 1 || args.length == 3) {
-            return Arrays.stream(Material.values())
-                    .map(m -> m.name().toLowerCase())
-                    .filter(name -> name.startsWith(args[args.length-1].toLowerCase()))
-                    .limit(20) // Damit die Liste nicht explodiert
-                    .collect(Collectors.toList());
-        }
-        // Schlägt Mengen vor bei Argument 2 und 4
-        if (args.length == 2 || args.length == 4) {
-            return List.of("1", "16", "32", "64");
-        }
-        return List.of();
+        player.sendMessage("§aHinzugefügt: §e" + payAmount + "x " + payMat.name() + " §agegen §e" + getAmount + "x " + getMat.name());
     }
 }
