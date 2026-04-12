@@ -2,80 +2,115 @@ package de.juyas.customtrader.api;
 
 import de.juyas.customtrader.CustomTraderPlugin;
 import de.juyas.customtrader.model.TradeOfferEntry;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.MerchantRecipe;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionData;
+import org.bukkit.potion.PotionType;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 public class Presets {
 
-    private static FileConfiguration config;
+    private static final Map<String, List<TradeOfferEntry>> PRESET_MAP = new HashMap<>();
 
     public static void load() {
-        File folder = CustomTraderPlugin.getInstance().getDataFolder();
-        if (!folder.exists()) folder.mkdirs();
-
-        File file = new File(folder, "presets.yml");
+        PRESET_MAP.clear();
+        File file = new File(CustomTraderPlugin.getInstance().getDataFolder(), "presets.yml");
         if (!file.exists()) {
             CustomTraderPlugin.getInstance().saveResource("presets.yml", false);
         }
-        config = YamlConfiguration.loadConfiguration(file);
-    }
 
-    public static List<TradeOfferEntry> getPreset(String name) {
-        List<TradeOfferEntry> offers = new ArrayList<>();
-        if (config == null) return offers;
+        FileConfiguration config = YamlConfiguration.loadConfiguration(file);
+        ConfigurationSection targetSection = config.isConfigurationSection("presets") ? config.getConfigurationSection("presets") : config;
 
-        // Versuche den Key direkt oder unter "presets." zu finden
-        Object rawData = config.get(name);
-        if (rawData == null) rawData = config.get("presets." + name);
+        for (String key : targetSection.getKeys(false)) {
+            if (key.equalsIgnoreCase("presets")) continue;
 
-        if (rawData instanceof List<?>) {
-            List<?> list = (List<?>) rawData;
-            for (Object obj : list) {
-                String line = String.valueOf(obj);
+            List<String> lines = targetSection.getStringList(key);
+            if (lines == null || lines.isEmpty()) continue;
+
+            List<TradeOfferEntry> offers = new ArrayList<>();
+            for (String line : lines) {
+                if (!line.contains(">")) continue;
                 try {
-                    // Erkennt sowohl "->" als auch ">"
-                    String separator = line.contains("->") ? "->" : ">";
-                    String[] parts = line.split(separator);
+                    String[] side = line.split(">");
+                    ItemStack buy = parseItem(side[0]);
+                    ItemStack sell = parseItem(side[1]);
 
-                    String[] buyPart = parts[0].trim().split(":");
-                    String[] sellPart = parts[1].trim().split(":");
-
-                    Material m1 = Material.valueOf(buyPart[0].toUpperCase());
-                    int a1 = Integer.parseInt(buyPart[1]);
-                    Material m2 = Material.valueOf(sellPart[0].toUpperCase());
-                    int a2 = Integer.parseInt(sellPart[1]);
-
-                    MerchantRecipe recipe = new MerchantRecipe(new ItemStack(m2, a2), 999999);
-                    recipe.addIngredient(new ItemStack(m1, a1));
+                    MerchantRecipe recipe = new MerchantRecipe(sell, 999999);
+                    recipe.addIngredient(buy);
+                    recipe.setExperienceReward(false);
                     offers.add(new TradeOfferEntry(recipe));
                 } catch (Exception e) {
-                    CustomTraderPlugin.getInstance().getLogger().warning("Konnte Zeile im Preset nicht lesen: " + line);
+                    Bukkit.getLogger().warning("[CustomTrader] Fehler in Zeile: " + line);
                 }
             }
+            if (!offers.isEmpty()) {
+                PRESET_MAP.put(key.toLowerCase(), offers);
+            }
         }
-        return offers;
+        Bukkit.getLogger().info("[CustomTrader] Erfolgreich geladene Presets: " + String.join(", ", PRESET_MAP.keySet()));
     }
 
-    public static Set<String> getPresetNames() {
-        if (config == null) return Set.of();
+    private static ItemStack parseItem(String input) {
+        try {
+            String[] parts = input.split(":");
+            String matName = parts[0].replaceAll("[^a-zA-Z_]", "").toUpperCase();
+            Material material = Material.matchMaterial(matName);
 
-        // Falls die Datei eine "presets:" Sektion hat
-        if (config.isConfigurationSection("presets")) {
-            return config.getConfigurationSection("presets").getKeys(false);
+            if (material == null) return new ItemStack(Material.BARRIER, 1);
+
+            int amount = 1;
+
+            // ---- POTION LOGIK (Legacy Translation) ----
+            if (matName.contains("POTION") && parts.length == 3) {
+                String amountStr = parts[2].replaceAll("[^0-9]", "");
+                if (!amountStr.isEmpty()) amount = Integer.parseInt(amountStr);
+
+                ItemStack item = new ItemStack(material, amount);
+                PotionMeta meta = (PotionMeta) item.getItemMeta();
+
+                if (meta != null) {
+                    String pType = parts[1].toLowerCase();
+                    if (pType.contains("poison")) {
+                        try {
+                            // Alte API: PotionType.POISON, extended=false, upgraded(Stufe II)=true
+                            meta.setBasePotionData(new PotionData(PotionType.POISON, false, true));
+                            Bukkit.getLogger().info("[CustomTrader] Legacy PotionData angewendet für Gift II!");
+                        } catch (Exception e) {
+                            Bukkit.getLogger().warning("[CustomTrader] Konnte Legacy Potion nicht setzen.");
+                        }
+                    }
+                    item.setItemMeta(meta);
+                }
+                return item;
+            }
+
+            // ---- STANDARD ITEM LOGIK ----
+            if (parts.length >= 2) {
+                String amountStr = parts[parts.length - 1].replaceAll("[^0-9]", "");
+                if (!amountStr.isEmpty()) {
+                    amount = Integer.parseInt(amountStr);
+                }
+            }
+
+            return new ItemStack(material, amount);
+
+        } catch (Exception e) {
+            return new ItemStack(Material.BARRIER, 1);
         }
-
-        // Ansonsten alle Keys auf oberster Ebene (außer dem Namen der Datei selbst)
-        return config.getKeys(false).stream()
-                .filter(k -> !k.equalsIgnoreCase("presets"))
-                .collect(Collectors.toSet());
     }
+
+    public static List<TradeOfferEntry> getPreset(String name) { return PRESET_MAP.get(name.toLowerCase()); }
+    public static List<String> getPresetNames() { return new ArrayList<>(PRESET_MAP.keySet()); }
 }
